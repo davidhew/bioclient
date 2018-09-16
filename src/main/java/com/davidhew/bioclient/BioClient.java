@@ -23,8 +23,8 @@ public class BioClient {
 
     private static boolean run = true;
 
-    private static final ArrayBlockingQueue ARRAY_QUEUE = new ArrayBlockingQueue(100);
-    private static final ExecutorService EXECUTOR_SERVICE = new ThreadPoolExecutor(20, 20, 5, TimeUnit.SECONDS, ARRAY_QUEUE);
+    private static final ArrayBlockingQueue ARRAY_QUEUE = new ArrayBlockingQueue(1000);
+    private static final ExecutorService EXECUTOR_SERVICE = new ThreadPoolExecutor(200, 200, 5, TimeUnit.SECONDS, ARRAY_QUEUE);
 
     static {
 
@@ -67,7 +67,7 @@ public class BioClient {
     }
 
     public static void main(String[] args) throws Exception {
-
+        int i = 0;
         new Thread(new TimeChecker()).start();
         while (true) {
             if (!run) {
@@ -76,10 +76,12 @@ public class BioClient {
                 break;
             }
             try {
-                Socket socket = SocketPool.get();
+                Socket socket = new Socket("127.0.0.1", 3306);
+                i++;
                 ClientHandler handler = new ClientHandler(socket);// 创建一个任务
                 EXECUTOR_SERVICE.execute(handler);// 任务交给线程池
             } catch (Exception ex) {
+                logger.error("The i is:"+i);
                 logger.error("Exception occurs", ex);
             }
         }

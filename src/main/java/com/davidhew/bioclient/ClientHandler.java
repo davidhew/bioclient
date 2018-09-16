@@ -72,8 +72,17 @@ public class ClientHandler implements Runnable {
         }
         finally{
 
+            if(!socket.isClosed()){
+                try {
+                    socket.close();
+                }catch(Exception ex){
+
+                    logger.error("Exception occurs when close socket",ex);
+                }
+            }
+
             //return socket to pool
-            SocketPool.add(socket);
+//            SocketPool.add(socket);
         }
     }
 
