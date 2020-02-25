@@ -21,17 +21,18 @@ public class BioClient {
 
     private static long startTime = System.currentTimeMillis();
 
-    private static boolean run = true;
+    /**
+     * 运行的2种模式：
+     * 1.循环模式，创建固定的连接数，在每个连接上重复的产生不同的request和收到不同的response
+     * 2.非循环模式，不断创建新的连接，每个连接上只产生一个request，收到一个对应的response
+     */
+    public static boolean isCyclic = true;
 
     private static final ArrayBlockingQueue ARRAY_QUEUE = new ArrayBlockingQueue(1000);
-    private static final ExecutorService EXECUTOR_SERVICE = new ThreadPoolExecutor(200, 200, 5, TimeUnit.SECONDS, ARRAY_QUEUE);
+    private static final ExecutorService EXECUTOR_SERVICE = new ThreadPoolExecutor(20, 20, 5, TimeUnit.SECONDS, ARRAY_QUEUE);
 
-    static {
+    private void initSockets(){
 
-        if (logger.isInfoEnabled()) {
-
-            logger.info("initiate socket pool");
-        }
 
         for (int i = 0; i < 20; i++) {
 
@@ -45,7 +46,17 @@ public class BioClient {
         }
     }
 
-    static class TimeChecker implements Runnable {
+    private void finish(){
+
+        logger.error(String.format("The total taskcount is:%d", TASK_COUNT.get()));
+        //异步写日志的时候有可能没来得及输出进程就退出了
+        System.out.println(String.format("The total taskcount is:%d", TASK_COUNT.get()));
+
+        System.exit(1);
+
+    }
+
+     class TimeChecker implements Runnable {
 
         @Override
         public void run() {
@@ -54,7 +65,7 @@ public class BioClient {
                 //运行3分钟
                 if (System.currentTimeMillis() - startTime >= 3 * 60 * 1000) {
 
-                    run = false;
+                    finish();
                 } else {
                     try {
                         Thread.sleep(1000);
@@ -67,23 +78,37 @@ public class BioClient {
     }
 
     public static void main(String[] args) throws Exception {
-        int i = 0;
-        new Thread(new TimeChecker()).start();
-        while (true) {
-            if (!run) {
 
-                logger.error(String.format("The total taskcount is:%d", TASK_COUNT.get()));
-                break;
-            }
+        if(args.length == 1){
+            isCyclic = Boolean.valueOf(args[0]);
+        }
+
+        BioClient bioClient = new BioClient();
+        TimeChecker timeChecker =  bioClient. new TimeChecker();
+        new Thread(timeChecker).start();
+
+        if(isCyclic){
+            bioClient.initSockets();
             try {
-                Socket socket = new Socket("127.0.0.1", 3306);
-                i++;
-                ClientHandler handler = new ClientHandler(socket);// 创建一个任务
-                EXECUTOR_SERVICE.execute(handler);// 任务交给线程池
+                for (int i = 0; i < 20; i++) {
+                    ClientHandler handler = new ClientHandler(SocketPool.get(),isCyclic);// 创建一个任务
+//                    handler.run();
+                    EXECUTOR_SERVICE.execute(handler);// 任务交给线程池
+                }
             } catch (Exception ex) {
-                logger.error("The i is:"+i);
                 logger.error("Exception occurs", ex);
             }
+
+        }else{
+
+            while(true){
+                Socket socket = new Socket("127.0.0.1", 3306);
+                ClientHandler handler = new ClientHandler(socket,isCyclic);// 创建一个任务
+
+                EXECUTOR_SERVICE.execute(handler);// 任务交给线程池
+            }
+
         }
+
     }
 }
